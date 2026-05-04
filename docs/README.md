@@ -9,9 +9,9 @@ Chào mừng bạn đến với hệ thống quản trị MPT MacusaOne. Tài li
 *   Trang Profile cá nhân.
 *   Nhật ký đăng nhập và bảo mật tài khoản.
 
-### 2. [Quản lý VPS](vps-management.md)
-*   Quản lý thông tin kết nối máy chủ.
-*   Bảo mật mật khẩu và các tiện ích (Copy IP, Test Connection).
+### 2. [Quản lý VPS](docs/vps-management.md): Theo dõi trạng thái, tự động cảnh báo và kiểm tra kết nối VPS.
+- [Quản lý Domain](docs/domain-management.md): Tích hợp Namecheap API, quản lý Subdomain và tự động tính toán giới hạn DNS.
+- [Giám sát & Thông báo](docs/monitoring.md): Hệ thống thông báo thời gian thực qua Database Notifications.
 *   Lịch sử thay đổi dữ liệu VPS.
 
 ### 3. [Giám sát & Thống kê](monitoring.md)
