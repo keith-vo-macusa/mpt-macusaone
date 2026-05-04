@@ -17,14 +17,19 @@ class VpsStats extends StatsOverviewWidget
         $onlineVps = Vps::where('is_online', true)->where('is_active', true)->count();
         $offlineVps = Vps::where('is_online', false)->where('is_active', true)->count();
         $totalUsers = User::count();
+        $totalDomains = \App\Models\Domain::count();
 
         return [
             Stat::make('Tổng số VPS', $totalVps)
                 ->description('Số lượng VPS trong hệ thống')
                 ->descriptionIcon('heroicon-m-server-stack')
                 ->color('info'),
+            Stat::make('Tổng Domain', $totalDomains)
+                ->description('Số lượng tên miền chính')
+                ->descriptionIcon('heroicon-m-globe-alt')
+                ->color('primary'),
             Stat::make('VPS đang Online', $onlineVps)
-                ->description('Số VPS hoạt động bình thường')
+->description('Số VPS hoạt động bình thường')
                 ->descriptionIcon('heroicon-m-check-circle')
                 ->color('success'),
             Stat::make('VPS đang Offline', $offlineVps)

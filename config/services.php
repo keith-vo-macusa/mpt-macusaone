@@ -28,6 +28,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'namecheap' => [
+        'user' => env('NAMECHEAP_API_USER'),
+        'key' => env('NAMECHEAP_API_KEY'),
+        'ip' => env('NAMECHEAP_CLIENT_IP'),
+        'sandbox' => env('NAMECHEAP_SANDBOX', true),
+        'mock' => env('NAMECHEAP_MOCK', false),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
