@@ -1,5 +1,5 @@
 ########################################
-# Stage 1: Vendor
+# Stage 1: Build vendor
 ########################################
 FROM composer:2 AS vendor
 
@@ -14,36 +14,84 @@ RUN composer install \
     --prefer-dist
 
 
+
 ########################################
 # Stage 2: Runtime
 ########################################
-FROM richarvey/nginx-php-fpm:php8.3
+FROM php:8.3-fpm-alpine
 
-ENV WEBROOT=/var/www/html/public
-ENV PHP_ERRORS_STDERR=1
-ENV RUN_SCRIPTS=1
-ENV REAL_IP_HEADER=1
-ENV LOG_CHANNEL=stderr
-ENV APP_ENV=production
-ENV APP_DEBUG=false
+# Install packages
+RUN apk add --no-cache \
+    nginx \
+    icu-dev \
+    libzip-dev \
+    oniguruma-dev \
+    bash
 
+# Install PHP extensions
+RUN docker-php-ext-install \
+    intl \
+    pdo \
+    pdo_mysql \
+    zip
+
+# Set working directory
 WORKDIR /var/www/html
 
-# Fix intl
-RUN apk add --no-cache icu-dev \
-    && docker-php-ext-install intl
-
+# Copy source
 COPY . /var/www/html
+
+# Copy vendor
 COPY --from=vendor /app/vendor /var/www/html/vendor
 
+# Optimize autoload
 RUN composer dump-autoload \
     --no-dev \
     --optimize
 
+# Create Laravel dirs
 RUN mkdir -p storage/logs bootstrap/cache
 
-RUN chown -R www-data:www-data /var/www/html
+# Permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 storage bootstrap/cache
 
-RUN chmod -R 775 storage bootstrap/cache
+########################################
+# 🔥 Setup nginx inline (KHÔNG cần file ngoài)
+########################################
+RUN rm /etc/nginx/nginx.conf
+
+RUN echo 'events {} \
+http { \
+    server { \
+        listen 80; \
+        root /var/www/html/public; \
+        index index.php index.html; \
+        \
+        location / { \
+            try_files $uri $uri/ /index.php?$query_string; \
+        } \
+        \
+        location ~ \.php$ { \
+            fastcgi_pass 127.0.0.1:9000; \
+            fastcgi_index index.php; \
+            include fastcgi_params; \
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; \
+        } \
+    } \
+}' > /etc/nginx/nginx.conf
+
+########################################
+# Opcache
+########################################
+RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+ && echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini \
+ && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/opcache.ini \
+ && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini
 
 EXPOSE 80
+
+########################################
+# Start services
+########################################
+CMD php-fpm -D && nginx -g "daemon off;"
