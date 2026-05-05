@@ -1,7 +1,23 @@
 ########################################
-# Stage 1: Build vendor
+# Stage 1: Vendor (PHP 8.3)
 ########################################
-FROM composer:2 AS vendor
+FROM php:8.3-cli-alpine AS vendor
+
+# Cài composer + extension cần thiết
+RUN apk add --no-cache \
+    git \
+    unzip \
+    icu-dev \
+    libzip-dev \
+    oniguruma-dev \
+    curl
+
+# Install PHP extensions
+RUN docker-php-ext-install intl zip
+
+# Install composer
+RUN curl -sS https://getcomposer.org/installer | php \
+    -- --install-dir=/usr/local/bin --filename=composer
 
 WORKDIR /app
 
@@ -20,7 +36,6 @@ RUN composer install \
 ########################################
 FROM php:8.3-fpm-alpine
 
-# Install packages
 RUN apk add --no-cache \
     nginx \
     icu-dev \
@@ -28,37 +43,27 @@ RUN apk add --no-cache \
     oniguruma-dev \
     bash
 
-# Install PHP extensions
 RUN docker-php-ext-install \
     intl \
     pdo \
     pdo_mysql \
     zip
 
-# Set working directory
 WORKDIR /var/www/html
 
-# Copy source
 COPY . /var/www/html
-
-# Copy vendor
 COPY --from=vendor /app/vendor /var/www/html/vendor
 
-# Optimize autoload
 RUN composer dump-autoload \
     --no-dev \
     --optimize
 
-# Create Laravel dirs
 RUN mkdir -p storage/logs bootstrap/cache
 
-# Permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
-########################################
-# 🔥 Setup nginx inline (KHÔNG cần file ngoài)
-########################################
+# nginx inline config
 RUN rm /etc/nginx/nginx.conf
 
 RUN echo 'events {} \
@@ -67,11 +72,9 @@ http { \
         listen 80; \
         root /var/www/html/public; \
         index index.php index.html; \
-        \
         location / { \
             try_files $uri $uri/ /index.php?$query_string; \
         } \
-        \
         location ~ \.php$ { \
             fastcgi_pass 127.0.0.1:9000; \
             fastcgi_index index.php; \
@@ -81,17 +84,6 @@ http { \
     } \
 }' > /etc/nginx/nginx.conf
 
-########################################
-# Opcache
-########################################
-RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
- && echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini \
- && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/opcache.ini \
- && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini
-
 EXPOSE 80
 
-########################################
-# Start services
-########################################
 CMD php-fpm -D && nginx -g "daemon off;"
