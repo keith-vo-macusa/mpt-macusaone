@@ -59,7 +59,19 @@ RUN docker-php-ext-install \
     intl \
     gd \
     exif \
-    pcntl
+    pcntl \
+    opcache
+
+RUN printf '%s\n' \
+    'opcache.enable=1' \
+    'opcache.memory_consumption=256' \
+    'opcache.interned_strings_buffer=16' \
+    'opcache.max_accelerated_files=20000' \
+    'opcache.validate_timestamps=0' \
+    'opcache.revalidate_freq=0' \
+    'opcache.save_comments=1' \
+    'opcache.enable_cli=0' \
+    > /usr/local/etc/php/conf.d/99-opcache.ini
 
 # composer để optimize
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -75,10 +87,11 @@ RUN composer dump-autoload --no-dev --optimize \
     && php artisan view:cache || true
 
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 storage bootstrap/cache || true
+    && chmod -R 775 storage bootstrap/cache || true \
+    && chmod +x /var/www/html/docker-entrypoint.sh
 
 COPY nginx.conf /etc/nginx/http.d/default.conf
 
 EXPOSE 8080
 
-CMD sh -c "php-fpm -D && nginx -g 'daemon off;'"
+ENTRYPOINT ["/var/www/html/docker-entrypoint.sh"]
