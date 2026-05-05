@@ -1,23 +1,27 @@
 ########################################
-# Stage 1: Vendor (Composer chạy PHP 8.3)
+# Stage 1: Vendor (Composer)
 ########################################
 FROM php:8.3-cli-alpine AS vendor
 
-# Cài system libs cần thiết
+# Cài lib cần thiết cho extension
 RUN apk add --no-cache \
     git \
     unzip \
-    icu-dev
+    icu-dev \
+    libzip-dev
 
-# Cài composer từ image chính thức
+# Cài PHP extensions cho composer
+RUN docker-php-ext-install \
+    intl \
+    zip
+
+# Cài composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
-# Copy file composer trước để tận dụng cache
 COPY composer.json composer.lock ./
 
-# Install dependencies (không dev)
 RUN composer install \
     --no-dev \
     --no-scripts \
@@ -26,11 +30,10 @@ RUN composer install \
 
 
 ########################################
-# Stage 2: App (PHP-FPM + Nginx)
+# Stage 2: App (Runtime)
 ########################################
 FROM php:8.3-fpm-alpine
 
-# Cài packages hệ thống
 RUN apk add --no-cache \
     nginx \
     postgresql-dev \
@@ -42,12 +45,10 @@ RUN apk add --no-cache \
     freetype-dev \
     bash
 
-# Config GD
 RUN docker-php-ext-configure gd \
     --with-freetype \
     --with-jpeg
 
-# Cài PHP extensions
 RUN docker-php-ext-install \
     pdo \
     pdo_pgsql \
@@ -60,32 +61,24 @@ RUN docker-php-ext-install \
     exif \
     pcntl
 
-# Copy composer (để chạy optimize)
+# composer để optimize
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Copy source code
 COPY . .
-
-# Copy vendor từ stage 1
 COPY --from=vendor /app/vendor /var/www/html/vendor
 
-# Optimize Laravel
 RUN composer dump-autoload --no-dev --optimize \
     && php artisan config:cache || true \
     && php artisan route:cache || true \
     && php artisan view:cache || true
 
-# Phân quyền
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache || true
 
-# Copy nginx config
 COPY nginx.conf /etc/nginx/http.d/default.conf
 
-# Port cho Render
 EXPOSE 8080
 
-# Start services
 CMD sh -c "php-fpm -D && nginx -g 'daemon off;'"
