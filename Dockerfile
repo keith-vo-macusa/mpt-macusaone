@@ -81,7 +81,7 @@ WORKDIR /var/www/html
 COPY . .
 COPY --from=vendor /app/vendor /var/www/html/vendor
 
-RUN composer dump-autoload --no-dev --optimize \
+RUN composer dump-autoload \
     && php artisan config:cache || true \
     && php artisan route:cache || true \
     && php artisan view:cache || true
